@@ -8,16 +8,17 @@ import (
 )
 
 type TailCommand interface {
-	outChannel() (out chan string)
-	ReadLine(chLine chan string)
+	OutChannel(line bool) (out chan string)
 	Close() error
 }
 
 type Tail struct {
-	ch  chan string
-	cmd *exec.Cmd
+	out     chan string
+	outLine chan string
+	cmd     *exec.Cmd
 }
 
+//Loads a file using the command tail and sends the output to a channel
 func Load(file string) TailCommand {
 	cmd := exec.Command("tail", "-n", "0", "-f", file)
 	stdout, err := cmd.StdoutPipe()
@@ -27,57 +28,61 @@ func Load(file string) TailCommand {
 	if err := cmd.Start(); err != nil {
 		log.Fatal(err)
 	}
-	tail := &Tail{make(chan string), cmd}
+	tail := &Tail{make(chan string), make(chan string), cmd}
 	go func() {
-		buf := make([]byte, 1)
+		buf := make([]byte, 2048)
 		for {
 			n, err := stdout.Read(buf)
 			if n != 0 {
-				tail.ch <- string(buf[:n])
+				tail.out <- string(buf[:n])
 			}
 			if err != nil {
 				break
 			}
 		}
 		fmt.Println("Goroutine finished")
-		close(tail.ch)
+		close(tail.out)
+		close(tail.outLine)
 	}()
 	return tail
 }
 
-func (t *Tail) outChannel() (out chan string) {
-	return t.ch
-}
-
-func (t *Tail) ReadLine(chLine chan string) {
-	go func() {
-		strLine := ""
-	loop:
-		for {
-			select {
-			case s, ok := <-t.ch:
-				if !ok {
-					break loop
-				}
-			hasNext:
-				for {
-					if index := strings.Index(s, "\n"); -1 != index {
-						strLine += s[:index]
-						chLine <- strLine
-						strLine = ""
-						if len(s) > index+1 {
-							s = s[index+1 : len(s)]
+//if line==true this method returns a channel of lines finished by \n
+func (t *Tail) OutChannel(line bool) (out chan string) {
+	if line {
+		out = t.outLine
+		go func() {
+			strLine := ""
+		loop:
+			for {
+				select {
+				case s, ok := <-t.out:
+					if !ok {
+						break loop
+					}
+				hasNext:
+					for {
+						if index := strings.Index(s, "\n"); -1 != index {
+							strLine += s[:index]
+							out <- strLine
+							strLine = ""
+							if len(s) > index+1 {
+								s = s[index+1 : len(s)]
+							} else {
+								break hasNext
+							}
 						} else {
+							strLine += s
 							break hasNext
 						}
-					} else {
-						strLine += s
-						break hasNext
 					}
 				}
 			}
-		}
-	}()
+		}()
+	} else {
+		out = t.out
+	}
+	return
 }
 
 func (t *Tail) Close() error {
