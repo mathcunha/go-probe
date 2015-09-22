@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
+	"strings"
 )
 
 type TailCommand interface {
-	OutChannel() (out chan string)
-	QuitChannel() (quit chan bool)
-	Close()
+	OutChannel(line bool) (out chan string)
+	Close() error
 }
 
 type Tail struct {
 	ch   chan string
-	quit chan bool
+	line chan string
 	cmd  *exec.Cmd
 }
 
@@ -27,9 +27,9 @@ func Load(file string) TailCommand {
 	if err := cmd.Start(); err != nil {
 		log.Fatal(err)
 	}
-	tail := &Tail{make(chan string), make(chan bool), cmd}
+	tail := &Tail{make(chan string), make(chan string), cmd}
 	go func() {
-		buf := make([]byte, 1024)
+		buf := make([]byte, 8)
 		for {
 			n, err := stdout.Read(buf)
 			if n != 0 {
@@ -41,18 +41,38 @@ func Load(file string) TailCommand {
 		}
 		fmt.Println("Goroutine finished")
 		close(tail.ch)
+		close(tail.line)
 	}()
 	return tail
 }
 
-func (t *Tail) QuitChannel() (quit chan bool) {
-	return t.quit
-}
-
-func (t *Tail) OutChannel() (out chan string) {
+func (t *Tail) OutChannel(line bool) (out chan string) {
+	if line {
+		go func() {
+			strLine := ""
+		loop:
+			for {
+				select {
+				case s, ok := <-t.ch:
+					if !ok {
+						break loop
+					}
+					if index := strings.Index(s, "\n"); -1 != index {
+						//log.Printf("s=[%v], index=%v, len=%v\n", s, index, len(s))
+						strLine += s[:index]
+						t.line <- strLine
+						strLine = ""
+					} else {
+						strLine += s
+					}
+				}
+			}
+		}()
+		return t.line
+	}
 	return t.ch
 }
 
-func (t *Tail) Close() {
-	t.cmd.Process.Kill()
+func (t *Tail) Close() error {
+	return t.cmd.Process.Kill()
 }

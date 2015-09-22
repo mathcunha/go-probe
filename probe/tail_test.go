@@ -8,17 +8,18 @@ import (
 
 func TestLoad(t *testing.T) {
 	tail := Load("/tmp/jmvmetrics.go")
-	time.AfterFunc(time.Second, func() { tail.QuitChannel() <- true })
+	quit := make(chan bool)
+	time.AfterFunc(4*time.Second, func() { quit <- true })
 
 loop:
 	for {
 		select {
-		case s, ok := <-tail.OutChannel():
+		case s, ok := <-tail.OutChannel(true):
 			if !ok {
 				break loop
 			}
-			fmt.Print(s)
-		case <-tail.QuitChannel():
+			fmt.Printf("%v\n", s)
+		case <-quit:
 			tail.Close()
 		}
 	}
