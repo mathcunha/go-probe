@@ -8,14 +8,14 @@ import (
 )
 
 type TailCommand interface {
-	OutChannel(line bool) (out chan string)
+	outChannel() (out chan string)
+	ReadLine(chLine chan string)
 	Close() error
 }
 
 type Tail struct {
-	ch   chan string
-	line chan string
-	cmd  *exec.Cmd
+	ch  chan string
+	cmd *exec.Cmd
 }
 
 func Load(file string) TailCommand {
@@ -27,9 +27,9 @@ func Load(file string) TailCommand {
 	if err := cmd.Start(); err != nil {
 		log.Fatal(err)
 	}
-	tail := &Tail{make(chan string), make(chan string), cmd}
+	tail := &Tail{make(chan string), cmd}
 	go func() {
-		buf := make([]byte, 8)
+		buf := make([]byte, 1)
 		for {
 			n, err := stdout.Read(buf)
 			if n != 0 {
@@ -41,36 +41,43 @@ func Load(file string) TailCommand {
 		}
 		fmt.Println("Goroutine finished")
 		close(tail.ch)
-		close(tail.line)
 	}()
 	return tail
 }
 
-func (t *Tail) OutChannel(line bool) (out chan string) {
-	if line {
-		go func() {
-			strLine := ""
-		loop:
-			for {
-				select {
-				case s, ok := <-t.ch:
-					if !ok {
-						break loop
-					}
+func (t *Tail) outChannel() (out chan string) {
+	return t.ch
+}
+
+func (t *Tail) ReadLine(chLine chan string) {
+	go func() {
+		strLine := ""
+	loop:
+		for {
+			select {
+			case s, ok := <-t.ch:
+				if !ok {
+					break loop
+				}
+			hasNext:
+				for {
 					if index := strings.Index(s, "\n"); -1 != index {
-						//log.Printf("s=[%v], index=%v, len=%v\n", s, index, len(s))
 						strLine += s[:index]
-						t.line <- strLine
+						chLine <- strLine
 						strLine = ""
+						if len(s) > index+1 {
+							s = s[index+1 : len(s)]
+						} else {
+							break hasNext
+						}
 					} else {
 						strLine += s
+						break hasNext
 					}
 				}
 			}
-		}()
-		return t.line
-	}
-	return t.ch
+		}
+	}()
 }
 
 func (t *Tail) Close() error {
