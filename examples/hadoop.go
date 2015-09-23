@@ -61,6 +61,7 @@ func (t *task) Run() {
 }
 
 func main() {
+	flag.Parse()
 	scheduler.Schedule([]scheduler.Task{scheduler.Task(&task{})})
 	readMetrics()
 }
