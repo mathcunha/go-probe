@@ -82,7 +82,7 @@ func runCommand(command string, arg ...string) (stdout string, err error) {
 	return
 }
 
-func getAllStats(stats *Stats) {
+func GetAllStats(stats *Stats) {
 	getUptime(stats)
 	getHostname(stats)
 	getLoad(stats)

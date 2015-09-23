@@ -3,15 +3,15 @@ package main
 import (
 	"flag"
 	"github.com/mathcunha/amon"
+	"github.com/mathcunha/amon/scheduler"
 	"github.com/mathcunha/go-probe/probe"
-	"log"
 	"regexp"
 	"time"
 )
 
 type JVMMetric struct {
 	Date                         time.Time
-	Milliseconds                 int32
+	Milliseconds                 int64
 	ProcessName                  string
 	SessionId                    string
 	Hostname                     string
@@ -22,33 +22,47 @@ type JVMMetric struct {
 	MemHeapCommittedM            float32
 	MemHeapMaxM                  float32
 	MemMaxM                      float32
-	GcCountCopy                  int
-	GcTimeMillisCopy             int
-	GcCountMarkSweepCompact      int
-	GcTimeMillisMarkSweepCompact int
-	GcCount                      int
-	GcTimeMillis                 int
-	ThreadsNew                   int
-	ThreadsRunnable              int
-	ThreadsBlocked               int
-	ThreadsWaiting               int
-	ThreadsTimedWaiting          int
-	ThreadsTerminated            int
-	LogFatal                     int
-	LogError                     int
-	LogWarn                      int
-	LogInfo                      int
+	GcCountCopy                  int32
+	GcTimeMillisCopy             int32
+	GcCountMarkSweepCompact      int32
+	GcTimeMillisMarkSweepCompact int32
+	GcCount                      int32
+	GcTimeMillis                 int32
+	ThreadsNew                   int32
+	ThreadsRunnable              int32
+	ThreadsBlocked               int32
+	ThreadsWaiting               int32
+	ThreadsTimedWaiting          int32
+	ThreadsTerminated            int32
+	LogFatal                     int32
+	LogError                     int32
+	LogWarn                      int32
+	LogInfo                      int32
 }
 
 var fileName string
+var interval string
+
+type task struct{}
 
 func init() {
+	flag.StringVar(&interval, "interval", "5s", "interval between metric collection")
 	flag.StringVar(&fileName, "jvmmetrics", "/usr/local/hadoop/nodemanager-jvm-metrics.out", "hadoop jvm metrics file")
 }
 
+func (t *task) Interval() string {
+	return interval
+}
+
+func (t *task) Run() {
+	stats := new(probe.Stats)
+	probe.GetAllStats(stats)
+	probe.PostStats(stats)
+}
+
 func main() {
+	scheduler.Schedule([]scheduler.Task{scheduler.Task(&task{})})
 	readMetrics()
-	log.Println("hello world!")
 }
 
 func readMetrics() {
@@ -63,9 +77,9 @@ loop:
 			if !ok {
 				break loop
 			}
-			log.Printf("%v\n", s)
 			jvm := new(JVMMetric)
 			amon.LoadAttributes(jvm, []byte(s))
+			probe.PostStats(jvm)
 		}
 	}
 
@@ -82,7 +96,34 @@ func (e JVMMetric) Patterns() []*regexp.Regexp {
 }
 
 func (e *JVMMetric) Load(mp *map[string]string) {
-	e.Milliseconds = amon.ParseInt((*mp)["Milliseconds"])
+	e.Milliseconds = amon.ParseInt64((*mp)["Milliseconds"])
+	e.Date = time.Unix(0, e.Milliseconds*int64(time.Millisecond))
 	e.ProcessName = (*mp)["ProcessName"]
-	log.Println((*mp))
+	e.SessionId = (*mp)["e.SessionId"]
+	e.ProcessName = (*mp)["ProcessName"]
+	e.SessionId = (*mp)["SessionId"]
+	e.Hostname = (*mp)["Hostname"]
+	e.MemNonHeapUsedM = amon.ParseFloat((*mp)["MemNonHeapUsedM"])
+	e.MemNonHeapCommittedM = amon.ParseFloat((*mp)["MemNonHeapCommittedM"])
+	e.MemNonHeapMaxM = amon.ParseFloat((*mp)["MemNonHeapMaxM"])
+	e.MemHeapUsedM = amon.ParseFloat((*mp)["MemHeapUsedM"])
+	e.MemHeapCommittedM = amon.ParseFloat((*mp)["MemHeapCommittedM"])
+	e.MemHeapMaxM = amon.ParseFloat((*mp)["MemHeapMaxM"])
+	e.MemMaxM = amon.ParseFloat((*mp)["MemMaxM"])
+	e.GcCountCopy = amon.ParseInt((*mp)["GcCountCopy"])
+	e.GcTimeMillisCopy = amon.ParseInt((*mp)["GcTimeMillisCopy"])
+	e.GcCountMarkSweepCompact = amon.ParseInt((*mp)["GcCountMarkSweepCompact"])
+	e.GcTimeMillisMarkSweepCompact = amon.ParseInt((*mp)["GcTimeMillisMarkSweepCompact"])
+	e.GcCount = amon.ParseInt((*mp)["GcCount"])
+	e.GcTimeMillis = amon.ParseInt((*mp)["GcTimeMillis"])
+	e.ThreadsNew = amon.ParseInt((*mp)["ThreadsNew"])
+	e.ThreadsRunnable = amon.ParseInt((*mp)["ThreadsRunnable"])
+	e.ThreadsBlocked = amon.ParseInt((*mp)["ThreadsBlocked"])
+	e.ThreadsWaiting = amon.ParseInt((*mp)["ThreadsWaiting"])
+	e.ThreadsTimedWaiting = amon.ParseInt((*mp)["ThreadsTimedWaiting"])
+	e.ThreadsTerminated = amon.ParseInt((*mp)["ThreadsTerminated"])
+	e.LogFatal = amon.ParseInt((*mp)["LogFatal"])
+	e.LogError = amon.ParseInt((*mp)["LogError"])
+	e.LogWarn = amon.ParseInt((*mp)["LogWarn"])
+	e.LogInfo = amon.ParseInt((*mp)["LogInfo"])
 }

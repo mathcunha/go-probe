@@ -12,7 +12,7 @@ import (
 
 var ESUrl = strings.Replace(os.Getenv("ELASTIC_PORT"), "tcp", "http", 1)
 
-func postStats(v interface{}) {
+func PostStats(v interface{}) {
 	timestamp := time.Now().Format("2006.01.02")
 	var postData []byte
 	w := bytes.NewBuffer(postData)

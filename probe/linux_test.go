@@ -7,10 +7,10 @@ import (
 
 func TestStats(t *testing.T) {
 	stats := new(Stats)
-	getAllStats(stats)
+	GetAllStats(stats)
 	//to load CPU data
 	time.Sleep(2000 * time.Millisecond)
 
-	getAllStats(stats)
+	GetAllStats(stats)
 	t.Log(stats)
 }
