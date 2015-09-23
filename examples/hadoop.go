@@ -10,7 +10,7 @@ import (
 )
 
 type JVMMetric struct {
-	Date                         time.Time
+	Date                         time.Time `json:"@timestamp"`
 	Milliseconds                 int64
 	ProcessName                  string
 	SessionId                    string

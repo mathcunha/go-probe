@@ -14,6 +14,7 @@ import (
 )
 
 type Stats struct {
+	Date         time.Time `json:"@timestamp"`
 	Uptime       time.Duration
 	Hostname     string
 	Load1        string
@@ -83,6 +84,7 @@ func runCommand(command string, arg ...string) (stdout string, err error) {
 }
 
 func GetAllStats(stats *Stats) {
+	stats.Date = time.Now()
 	getUptime(stats)
 	getHostname(stats)
 	getLoad(stats)
