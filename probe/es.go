@@ -19,7 +19,7 @@ func PostStats(v interface{}) {
 	json.NewEncoder(w).Encode(v)
 	resp, err := http.Post(ESUrl+"/logstash-"+timestamp+"/monitor/", "application/json", w)
 	if err != nil {
-		log.Printf("postStats %v to %v:%v", v, ESUrl, err)
+		log.Printf("PostStats %v to %v:%v", v, ESUrl, err)
 	} else {
 
 		resp.Body.Close()
