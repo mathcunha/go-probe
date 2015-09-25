@@ -38,26 +38,38 @@ type JVMMetric struct {
 	LogError                     int32
 	LogWarn                      int32
 	LogInfo                      int32
+	Scenario                     string
+	Workload                     string
 }
 
 var fileName string
 var interval string
+var scenario string
+var workload string
 
 type task struct{}
 
 func init() {
 	flag.StringVar(&interval, "interval", "5s", "interval between metric collection")
 	flag.StringVar(&fileName, "jvmmetrics", "/usr/local/hadoop/nodemanager-jvm-metrics.out", "hadoop jvm metrics file")
+	flag.StringVar(&scenario, "scenario", "1_m3_m3dium", "monitored scenario")
+	flag.StringVar(&workload, "workload", "100000", "terasort bytes workload")
 }
 
 func (t *task) Interval() string {
 	return interval
 }
 
+type Stats struct {
+	probe.Stats
+	Scenario string
+	Workload string
+}
+
 func (t *task) Run() {
 	stats := new(probe.Stats)
 	probe.GetAllStats(stats)
-	probe.PostStats(stats)
+	probe.PostStats(Stats{*stats, scenario, workload})
 }
 
 func main() {
@@ -98,6 +110,8 @@ func (e JVMMetric) Patterns() []*regexp.Regexp {
 
 func (e *JVMMetric) Load(mp *map[string]string) {
 	e.Milliseconds = amon.ParseInt64((*mp)["Milliseconds"])
+	e.Scenario = scenario
+	e.Workload = workload
 	e.Date = time.Unix(0, e.Milliseconds*int64(time.Millisecond))
 	e.ProcessName = (*mp)["ProcessName"]
 	e.SessionId = (*mp)["e.SessionId"]
